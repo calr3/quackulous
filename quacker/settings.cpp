@@ -28,6 +28,7 @@
 #include "alphabetparameters.h"
 #include "board.h"
 #include "boardparameters.h"
+#include "gameparameters.h"
 #include "computerplayercollection.h"
 #include "datamanager.h"
 #include "game.h"
@@ -247,6 +248,7 @@ void Settings::initialize()
 
 	QUACKLE_DATAMANAGER->setAppDataDirectory(m_appDataDir.toStdString());
 	QUACKLE_DATAMANAGER->setUserDataDirectory(m_userDataDir.toStdString());
+	QUACKLE_DATAMANAGER->setParameters(new Quackle::LexulousParameters());
 
 	QString lexiconName = settings.value("quackle/settings/lexicon-name", QString("nwl23")).toString();
 
@@ -255,7 +257,7 @@ void Settings::initialize()
 		lexiconName = "csw07";
 
 	setQuackleToUseLexiconName(lexiconName);
-	setQuackleToUseAlphabetName(settings.value("quackle/settings/alphabet-name", QString("english")).toString());
+	setQuackleToUseAlphabetName(settings.value("quackle/settings/alphabet-name", QString("lexulous")).toString());
 	setQuackleToUseThemeName(settings.value("quackle/settings/theme-name", QString("traditional")).toString());
 	setQuackleToUseBoardName(settings.value("quackle/settings/board-name", QString("")).toString());
 }
@@ -455,7 +457,7 @@ void Settings::setQuackleToUseBoardName(const QString &boardName)
 	settings.beginGroup("quackle/boardparameters");
 
 	if (boardName.isEmpty() || !settings.contains(boardName))
-		QUACKLE_DATAMANAGER->setBoardParameters(new Quackle::BoardParameters());
+		QUACKLE_DATAMANAGER->setBoardParameters(new Quackle::LexulousBoard());
 	else
 	{
 		QByteArray boardParameterBytes = qUncompress(settings.value(boardName).toByteArray());
