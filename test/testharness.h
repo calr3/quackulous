@@ -89,6 +89,12 @@ public:
 	Quackle::Game *createNewGame(const QString &filename);
 
 	void selfPlayGames(unsigned int seed, unsigned int reps, bool reports, bool playability);
+
+	// Self-plays reps games until the bag runs low, recording each kept leave and its owner's next score.
+	void leaveGen(unsigned int reps, const QString &outFile);
+
+	// Fits a value to every leave from leaveGen's statistics and writes a superleaves file.
+	void leaveFit(const QStringList &statsFiles, const QString &outFile, double priorSd);
 	void selfPlayGame(unsigned int gameNumber, bool reports, bool playability);
 
 	// Sets the positions that will be tested.

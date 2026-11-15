@@ -18,9 +18,15 @@
 
 #include <QtCore>
 
+#include <cmath>
+#include <fstream>
+#include <functional>
+#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <algorithm>
+#include <map>
+#include <unordered_map>
 
 #include <bogowinplayer.h>
 #include <computerplayercollection.h>
@@ -119,6 +125,10 @@ const char *usage =
 "       'anagram' anagrams letters supplied in --letters.\n"
 "       'cputopology' dumps detected CPU topology and thread pool sizing.\n"
 "       'sim' checks the simulator's accumulators.\n"
+"       'leavegen' self-plays --repetitions games and writes leave statistics\n"
+"                  to --out (default stdout).\n"
+"       'leavefit' fits leave values from the --stats files and writes a\n"
+"                  superleaves file to --out.\n"
 "--position=game.gcg; this option can be repeated to specify positions\n"
 "                     to test.\n"
 "--lexicon=; sets the lexicon (default 'nwl23', or 'csw24' under\n"
@@ -130,6 +140,10 @@ const char *usage =
 "--seed=integer; seed the rng for reproducible sessions.\n"
 "--report; generate reports for selfplay games (default false).\n"
 "--letters; letters to anagram.\n"
+"--out=file; output file for leavegen and leavefit.\n"
+"--stats=file; leavegen output for leavefit; repeatable.\n"
+"--prior-sd=number; for leavefit, how far a leave's value may stray from the\n"
+"        estimate built from its sub-leaves, in points (default 5).\n"
 "--build; when mode is anagram, do not require that all letters be used.\n"
 "--quiet; print nothing during selfplay games (default false).\n"
 "--repetitions=integer; the number of games for selfplay (default 1000).\n"
@@ -149,6 +163,9 @@ void TestHarness::executeFromArguments()
 	QString repString;
 	QString threadString;
 	QString qosString;
+	QString outFile;
+	QString priorSdString;
+	QStringList statsFiles;
 	bool build;
 	QString letters;
 	bool help;
@@ -168,6 +185,9 @@ void TestHarness::executeFromArguments()
 	opts.addOption('n', "threads", &threadString);
 	opts.addOption('q', "qos", &qosString);
 	opts.addRepeatableOption("position", &m_positions);
+	opts.addOption('o', "out", &outFile);
+	opts.addOption('p', "prior-sd", &priorSdString);
+	opts.addRepeatableOption("stats", &statsFiles);
 
 	opts.addSwitch("report", &report);
 	opts.addSwitch("build", &build);
@@ -253,6 +273,10 @@ void TestHarness::executeFromArguments()
 		cpuTopology();
 	else if (mode == "sim")
 		simulation();
+	else if (mode == "leavegen")
+		leaveGen(reps, outFile);
+	else if (mode == "leavefit")
+		leaveFit(statsFiles, outFile, priorSdString.isNull() ? 5.0 : priorSdString.toDouble());
 }
 
 void TestHarness::startUp()
@@ -1314,4 +1338,356 @@ void TestHarness::simulation()
 	}
 
 	UVcout << "all simulator checks passed" << endl;
+}
+
+namespace
+{
+struct LeaveStat
+{
+	long long count = 0;
+	double sum = 0;
+	double sumSquares = 0;
+
+	void add(double value)
+	{
+		++count;
+		sum += value;
+		sumSquares += value * value;
+	}
+
+	void merge(const LeaveStat &other)
+	{
+		count += other.count;
+		sum += other.sum;
+		sumSquares += other.sumSquares;
+	}
+};
+
+typedef map<LetterString, LeaveStat> LeaveStats;
+
+UVString leaveText(const LetterString &leave)
+{
+	return leave.empty() ? UVString(MARK_UV("-")) : QUACKLE_ALPHABET_PARAMETERS->userVisible(leave);
+}
+
+void writeLeaveStats(UVOStream &out, const LeaveStats &stats)
+{
+	out << setprecision(12);
+	for (const auto &it : stats)
+		out << leaveText(it.first) << "\t" << it.second.count << "\t" << it.second.sum << "\t" << it.second.sumSquares << "\n";
+}
+
+bool readLeaveStats(const QString &filename, LeaveStats *stats)
+{
+	QFile file(filename);
+	if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+	{
+		UVcerr << "Could not open leave stats " << QuackleIO::Util::qstringToString(filename) << endl;
+		return false;
+	}
+
+	QTextStream in(&file);
+	SET_QTEXTSTREAM_TO_UTF8(in);
+	int lineNumber = 0;
+	while (!in.atEnd())
+	{
+		const QString line = in.readLine();
+		++lineNumber;
+		if (line.isEmpty() || line.startsWith('#'))
+			continue;
+
+		const QStringList fields = line.split('\t');
+		bool countOk = false, sumOk = false, squaresOk = false;
+		LeaveStat stat;
+		if (fields.size() == 4)
+		{
+			stat.count = fields[1].toLongLong(&countOk);
+			stat.sum = fields[2].toDouble(&sumOk);
+			stat.sumSquares = fields[3].toDouble(&squaresOk);
+		}
+
+		LetterString leave;
+		UVString leftover;
+		if (fields.size() == 4 && fields[0] != "-")
+			leave = String::alphabetize(QUACKLE_ALPHABET_PARAMETERS->encode(QuackleIO::Util::qstringToString(fields[0]), &leftover));
+
+		if (!countOk || !sumOk || !squaresOk || !leftover.empty())
+		{
+			UVcerr << QuackleIO::Util::qstringToString(filename) << ":" << lineNumber << ": malformed leave stats line" << endl;
+			return false;
+		}
+
+		(*stats)[leave].merge(stat);
+	}
+	return true;
+}
+
+// Every multiset of exactly `size` tiles the full bag can supply, each alphabetized.
+void forEachLeave(const vector<pair<Letter, int>> &supply, size_t index, int size, LetterString *prefix,
+	const std::function<void(const LetterString &)> &visit)
+{
+	if (size == 0)
+	{
+		visit(*prefix);
+		return;
+	}
+	if (index == supply.size())
+		return;
+
+	const int most = std::min(size, supply[index].second);
+	for (int take = 0; take <= most; ++take)
+	{
+		forEachLeave(supply, index + 1, size - take, prefix, visit);
+		prefix->push_back(supply[index].first);
+	}
+	for (int take = 0; take <= most; ++take)
+		prefix->pop_back();
+}
+
+LetterString withoutPositions(const LetterString &leave, unsigned int first, unsigned int second)
+{
+	LetterString ret;
+	for (unsigned int i = 0; i < leave.length(); ++i)
+		if (i != first && i != second)
+			ret += leave[i];
+	return ret;
+}
+} // namespace
+
+void TestHarness::leaveGen(unsigned int reps, const QString &outFile)
+{
+	const int rackSize = QUACKLE_PARAMETERS->rackSize();
+	LeaveStats stats;
+	long long observations = 0;
+	long long turns = 0;
+	long long points = 0;
+
+	for (unsigned int gameNumber = 0; gameNumber < reps; ++gameNumber)
+	{
+		Quackle::Game game;
+		Quackle::PlayerList players;
+		for (int id = 0; id < 2; ++id)
+		{
+			Quackle::ComputerPlayer *computer = id == 0 ? m_computerPlayerToTest : m_computerPlayer2ToTest;
+			Quackle::Player player(computer->name() + (id == 0 ? MARK_UV(" A") : MARK_UV(" B")), Quackle::Player::ComputerPlayerType, id);
+			player.setComputerPlayer(computer);
+			players.push_back(player);
+		}
+		game.setPlayers(players);
+		game.associateKnownComputerPlayers();
+		game.addPosition();
+
+		bool pending[2] = { false, false };
+		LetterString pendingLeave[2];
+
+		// Once the bag can't refill a rack, no later turn can be observed, so skip the endgame.
+		for (int move = 0; move < 200 && !game.currentPosition().gameOver(); ++move)
+		{
+			const int id = game.currentPosition().currentPlayer().id();
+			const Quackle::Rack rack = game.currentPosition().currentPlayer().rack();
+			const bool fullBag = (int)game.currentPosition().bag().size() >= rackSize;
+			if (!fullBag)
+				break;
+
+			const Quackle::Move made = game.haveComputerPlay();
+			const bool keepsLeave = made.action == Quackle::Move::Place || made.action == Quackle::Move::Exchange;
+			const LetterString leave = String::alphabetize((rack - made).tiles());
+
+			if (pending[id] && keepsLeave)
+			{
+				stats[pendingLeave[id]].add(made.score);
+				++observations;
+			}
+			pending[id] = keepsLeave;
+			pendingLeave[id] = leave;
+			points += made.score;
+			++turns;
+		}
+	}
+
+	UVcout << "leavegen: " << reps << " games, " << turns << " turns, " << observations << " observations, " << stats.size()
+		   << " distinct leaves, " << setprecision(6) << (turns ? double(points) / turns : 0.0) << " points per turn" << endl;
+
+	if (outFile.isEmpty())
+	{
+		writeLeaveStats(UVcout, stats);
+		return;
+	}
+
+	UVOFStream out(QuackleIO::Util::qstringToStdString(outFile).c_str());
+	if (!out.is_open())
+	{
+		UVcerr << "Could not write " << QuackleIO::Util::qstringToString(outFile) << endl;
+		return;
+	}
+	out << "# leavegen " << reps << " games\n";
+	writeLeaveStats(out, stats);
+}
+
+void TestHarness::leaveFit(const QStringList &statsFiles, const QString &outFile, double priorSd)
+{
+	if (statsFiles.isEmpty() || outFile.isEmpty() || priorSd <= 0)
+	{
+		UVcerr << "leavefit needs --stats (repeatable), --out, and a positive --prior-sd" << endl;
+		return;
+	}
+
+	const int largestLeave = QUACKLE_PARAMETERS->rackSize() - 1;
+	uint64_t unused;
+	if (!StrategyParameters::packLeave(LetterString(largestLeave, QUACKLE_FIRST_LETTER), &unused))
+	{
+		UVcerr << "leavefit: leaves of " << largestLeave << " tiles are too long to store" << endl;
+		return;
+	}
+
+	LeaveStats stats;
+	for (const QString &file : statsFiles)
+		if (!readLeaveStats(file, &stats))
+			return;
+
+	const auto empty = stats.find(LetterString());
+	if (empty == stats.end() || empty->second.count == 0)
+	{
+		UVcerr << "leavefit: no observations of the empty leave, so there is no baseline" << endl;
+		return;
+	}
+	const double baseline = empty->second.sum / empty->second.count;
+
+	double withinSquares = 0;
+	long long withinDof = 0;
+	unordered_map<uint64_t, const LeaveStat *> statsByKey;
+	for (const auto &it : stats)
+	{
+		if (it.second.count >= 2)
+		{
+			withinSquares += it.second.sumSquares - it.second.sum * it.second.sum / it.second.count;
+			withinDof += it.second.count - 1;
+		}
+		uint64_t key;
+		if (!it.first.empty() && StrategyParameters::packLeave(it.first, &key))
+			statsByKey[key] = &it.second;
+	}
+	if (withinDof == 0)
+	{
+		UVcerr << "leavefit: no leave was observed twice, so the noise level is unknown" << endl;
+		return;
+	}
+	const double sigma = sqrt(withinSquares / withinDof);
+	// Observations of a leave needed to outweigh its prior.
+	const double kappa = (sigma * sigma) / (priorSd * priorSd);
+
+	vector<pair<Letter, int>> supply;
+	for (Letter letter = 0; letter <= QUACKLE_ALPHABET_PARAMETERS->lastLetter(); ++letter)
+		if (QUACKLE_ALPHABET_PARAMETERS->count(letter) > 0)
+			supply.emplace_back(letter, QUACKLE_ALPHABET_PARAMETERS->count(letter));
+
+	ofstream out(QuackleIO::Util::qstringToStdString(outFile).c_str(), ios::out | ios::binary);
+	if (!out.is_open())
+	{
+		UVcerr << "Could not write " << QuackleIO::Util::qstringToString(outFile) << endl;
+		return;
+	}
+
+	UVcout << "leavefit: baseline (empty leave) " << setprecision(6) << baseline << " from " << empty->second.count
+		   << " observations; noise sd " << sigma << "; prior sd " << priorSd << "; prior weight " << kappa << " observations" << endl;
+
+	// values[k] holds the fitted value of every leave of size k.
+	vector<unordered_map<uint64_t, double>> values(largestLeave + 1);
+	uint64_t checksum = 1469598103934665603ULL;
+
+	auto valueOf = [&values](const LetterString &leave) {
+		uint64_t key;
+		StrategyParameters::packLeave(leave, &key);
+		return values[leave.length()].at(key);
+	};
+
+	for (int size = 1; size <= largestLeave; ++size)
+	{
+		// Pairwise extrapolation from the sub-leaves one and two tiles smaller: exact when a leave's value is a sum of
+		// per-tile and per-pair terms.
+		double alpha = 1, beta = 0;
+		if (size >= 3)
+		{
+			const double a11 = size - 1, a12 = (size - 1) * (size - 2) / 2.0;
+			const double a21 = size - 2, a22 = (size - 2) * (size - 3) / 2.0;
+			const double det = a11 * a22 - a12 * a21;
+			alpha = (a22 - a12) / det;
+			beta = (a11 - a21) / det;
+		}
+
+		long long leaves = 0, observed = 0, observations = 0;
+		unordered_map<uint64_t, double> &current = values[size];
+		LetterString prefix;
+		forEachLeave(supply, 0, size, &prefix, [&](const LetterString &leave) {
+			// The estimate from this fit's sub-leaves, plus whatever the table the games were played with knows beyond
+			// its own sub-leaf estimate (QU's synergy, say), so that knowledge carries from one fit to the next.
+			const double playedWith = QUACKLE_STRATEGY_PARAMETERS->superleave(leave);
+			double oneSmaller = 0, twoSmaller = 0, playedWithOneSmaller = 0, playedWithTwoSmaller = 0;
+			for (int i = 0; size >= 2 && i < size; ++i)
+			{
+				const LetterString one = withoutPositions(leave, i, i);
+				oneSmaller += valueOf(one);
+				playedWithOneSmaller += QUACKLE_STRATEGY_PARAMETERS->superleave(one);
+				for (int j = i + 1; size >= 3 && j < size; ++j)
+				{
+					const LetterString two = withoutPositions(leave, i, j);
+					twoSmaller += valueOf(two);
+					playedWithTwoSmaller += QUACKLE_STRATEGY_PARAMETERS->superleave(two);
+				}
+			}
+			double prior = alpha * oneSmaller + beta * twoSmaller;
+			if (playedWith != 0)
+				prior += playedWith - (alpha * playedWithOneSmaller + beta * playedWithTwoSmaller);
+
+			uint64_t key;
+			StrategyParameters::packLeave(leave, &key);
+			double value = prior;
+			const auto stat = statsByKey.find(key);
+			if (stat != statsByKey.end())
+			{
+				const double n = stat->second->count;
+				value = (stat->second->sum - n * baseline + kappa * prior) / (n + kappa);
+				++observed;
+				observations += stat->second->count;
+			}
+			value = std::max(-127.99, std::min(127.99, value));
+			unsigned int encoded = (unsigned int)lround((value + 128.0) * 256.0);
+			// The engine reads a stored 0 as no value at all.
+			if (encoded == 128 * 256)
+				++encoded;
+			value = encoded / 256.0 - 128.0;
+			if (size < largestLeave || size == 1)
+				current[key] = value;
+			++leaves;
+
+			const unsigned char length = (unsigned char)leave.length();
+			const unsigned char bytes[2] = { (unsigned char)(encoded & 0xFF), (unsigned char)(encoded >> 8) };
+			out.write((const char *)&length, 1);
+			out.write(leave.constData(), length);
+			out.write((const char *)bytes, 2);
+
+			for (const unsigned char c : { length, bytes[0], bytes[1] })
+				checksum = (checksum ^ c) * 1099511628211ULL;
+			for (unsigned int i = 0; i < leave.length(); ++i)
+				checksum = (checksum ^ (unsigned char)leave[i]) * 1099511628211ULL;
+		});
+
+		UVcout << "size " << size << ": " << leaves << " leaves, " << observed << " observed (" << observations << " observations)" << endl;
+
+		if (size >= 4)
+			values[size - 2].clear();
+	}
+
+	vector<pair<double, LetterString>> singles;
+	for (const auto &supplied : supply)
+	{
+		const LetterString single(1, supplied.first);
+		singles.emplace_back(valueOf(single), single);
+	}
+	sort(singles.rbegin(), singles.rend());
+	UVcout << "single tiles:";
+	for (const auto &single : singles)
+		UVcout << " " << QUACKLE_ALPHABET_PARAMETERS->userVisible(single.second) << " " << setprecision(3) << fixed << single.first;
+	UVcout << defaultfloat << endl;
+	UVcout << "wrote " << QuackleIO::Util::qstringToString(outFile) << " (checksum " << hex << checksum << dec << ")" << endl;
 }

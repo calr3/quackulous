@@ -13,6 +13,9 @@
 
     { "name": "playability",           "mode": "playability", "args": ["--rules=lexulous", "--repetitions=2"], "seed": 5 },
 
-    { "name": "sim",                   "mode": "sim", "args": ["--rules=lexulous"] }
+    { "name": "sim",                   "mode": "sim", "args": ["--rules=lexulous"] },
+
+    { "name": "leavegen",              "mode": "leavegen", "args": ["--rules=lexulous", "--repetitions=3"], "seed": 11 },
+    { "name": "leavefit",              "mode": "leavefit", "args": ["--rules=lexulous", "--stats=leavegen.stats", "--out=superleaves"], "inputs": { "leavegen.stats": "inputs/leavegen.stats" } }
   ]
 }

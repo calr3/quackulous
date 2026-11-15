@@ -1,0 +1,10 @@
+leavefit: baseline (empty leave) 51.2222 from 9 observations; noise sd 27.1264; prior sd 5; prior weight 29.4337 observations
+size 1: 27 leaves, 24 observed (85 observations)
+size 2: 373 leaves, 12 observed (12 observations)
+size 3: 3509 leaves, 38 observed (39 observations)
+size 4: 25250 leaves, 34 observed (35 observations)
+size 5: 148046 leaves, 28 observed (28 observations)
+size 6: 735924 leaves, 12 observed (12 observations)
+size 7: 3187102 leaves, 1 observed (1 observations)
+single tiles: ? 27.949 S 13.141 R 5.051 Z 4.707 L 3.559 E 3.520 N 1.977 T 1.809 C 1.758 M 1.547 A 1.531 P 1.215 Y 0.129 H 0.117 D -0.504 X -0.613 F -1.258 K -1.402 I -1.676 J -2.102 B -2.238 G -2.512 O -2.566 W -4.555 V -6.555 U -6.645 Q -7.281
+wrote superleaves (checksum 802be3e6762c8e45)
