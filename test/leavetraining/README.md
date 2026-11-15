@@ -30,12 +30,12 @@ Defaults: Lexulous rules, csw24, 8 iterations of 1,000,000 games, one job per
 CPU, working directory `./leavetraining-work`. Python 3 alone is enough; there
 are no packages to install.
 
-Rough cost, measured on one core of a 2026 cloud VM: 40 games a second, so a
-million games is about 7 core-hours (26 minutes on 16 cores), giving about 10
-million observations. Fitting takes about 10 seconds and a few hundred MB of
-memory. Each iteration leaves its statistics (about 1 MB per 8,000 games in
-testing, growing more slowly than the game count) and a 39 MB table in its
-directory.
+Rough cost, measured on a 4-core 2026 cloud VM: 40 to 50 games a second per
+core, so a million games is 5 to 7 core-hours (20 to 26 minutes on 16 cores),
+giving about 10 million observations. Fitting takes about 10 seconds and a few
+hundred MB of memory. Each iteration leaves its statistics (2.3 MB for 100,000
+games on 4 jobs, growing more slowly than the game count) and a 39 MB table in
+its directory.
 
 Stopping and restarting with the same command resumes: finished iterations are
 kept and an unfinished one is redone from the start.
@@ -59,6 +59,12 @@ iteration 3: 1000000 games, 10100000 observations, 58.20 points per turn; 26.4 m
 Per-job logs, the merged statistics, and `leavefit.log` (observations per
 leave size, the noise level, the fitted single tiles) are in each
 `iteration-NNN/` directory.
+
+For reference, a test of 3 iterations of 100,000 games gave 60.95 points per
+turn with the Scrabble table (iteration 1), then 61.05 and 61.06. The
+single-tile values moved by less than half a point between iterations 2 and 3.
+At 8,000 games per iteration the trained tables did worse than the Scrabble
+one, so don't judge the method on small runs.
 
 ## Installing the result
 
