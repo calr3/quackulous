@@ -209,11 +209,11 @@ public:
 	int iteration = 0;
 	Move move;
 	LevelList levels;
-	double residual;
-	double gameSpread;
-	double wins;
+	double residual = 0;
+	double gameSpread = 0;
+	double wins = 0;
 
-	bool bogowin;
+	bool bogowin = false;
 	// set if the worker's simulateOnePosition() threw; the message's
 	// results are invalid and simulate() rethrows this on the main thread
 	std::exception_ptr error;
