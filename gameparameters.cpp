@@ -49,6 +49,7 @@ LexulousParameters::LexulousParameters()
 	m_minimumTilesForExchange = 8;
 	m_numberOfScorelessTurnsThatEndsGame = 6;
 	m_rackSize = 8;
+	m_variantName = "lexulous";
 	setBonusForTilesPlayed(7, 40);
 	setBonusForTilesPlayed(8, 50);
 }

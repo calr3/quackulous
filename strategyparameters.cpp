@@ -16,12 +16,14 @@
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 
 #include "alphabetparameters.h"
 #include "boardparameters.h"
 #include "datamanager.h"
+#include "gameparameters.h"
 #include "strategyparameters.h"
 
 using namespace Quackle;
@@ -34,11 +36,23 @@ StrategyParameters::StrategyParameters()
 
 void StrategyParameters::initialize(const string &lexicon)
 {
-	m_hasSyn2 = loadSyn2(DataManager::self()->findDataFile("strategy", lexicon, "syn2"));
-	m_hasWorths = loadWorths(DataManager::self()->findDataFile("strategy", lexicon, "worths"));
-	m_hasVcPlace = loadVcPlace(DataManager::self()->findDataFile("strategy", lexicon, "vcplace"));
-	m_hasBogowin = loadBogowin(DataManager::self()->findDataFile("strategy", lexicon, "bogowin"));
-	m_hasSuperleaves = loadSuperleaves(DataManager::self()->findDataFile("strategy", lexicon, "superleaves"));
+	m_hasSyn2 = loadSyn2(findStrategyFile(lexicon, "syn2"));
+	m_hasWorths = loadWorths(findStrategyFile(lexicon, "worths"));
+	m_hasVcPlace = loadVcPlace(findStrategyFile(lexicon, "vcplace"));
+	m_hasBogowin = loadBogowin(findStrategyFile(lexicon, "bogowin"));
+	m_hasSuperleaves = loadSuperleaves(findStrategyFile(lexicon, "superleaves"));
+}
+
+string StrategyParameters::findStrategyFile(const string &lexicon, const string &file) const
+{
+	const string &variant = QUACKLE_PARAMETERS->variantName();
+	if (!variant.empty())
+	{
+		const string variantFile = DataManager::self()->findDataFile("strategy", variant + "_" + lexicon + "/" + file);
+		if (!variantFile.empty())
+			return variantFile;
+	}
+	return DataManager::self()->findDataFile("strategy", lexicon, file);
 }
 
 bool StrategyParameters::loadSyn2(const string &filename)
@@ -233,9 +247,14 @@ bool StrategyParameters::loadSuperleaves(const string &filename)
 		LetterString leave = LetterString(leavebytes, leavesize);
 
 		double value = (double(intvalue) / 256.0) - 128.0;
-		m_superleaves.insert(m_superleaves.end(), SuperLeavesMap::value_type(leave, value));
+		uint64_t key;
+		if (packLeave(String::alphabetize(leave), &key))
+			m_superleaves.emplace_back(key, float(value));
 	}
 
 	file.close();
+
+	std::stable_sort(m_superleaves.begin(), m_superleaves.end(),
+		[](const std::pair<uint64_t, float> &a, const std::pair<uint64_t, float> &b) { return a.first < b.first; });
 	return true;
 }

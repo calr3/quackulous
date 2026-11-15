@@ -19,7 +19,10 @@
 #ifndef QUACKLE_STRATEGYPARAMETERS_H
 #define QUACKLE_STRATEGYPARAMETERS_H
 
-#include <map>
+#include <algorithm>
+#include <cstdint>
+#include <utility>
+#include <vector>
 #include "alphabetparameters.h"
 
 namespace Quackle
@@ -30,6 +33,7 @@ class StrategyParameters
 public:
 	StrategyParameters();
 
+	// Looks in strategy/<variant>_<lexicon>/ first when the game parameters name a variant.
 	void initialize(const string &lexicon);
 	bool hasSyn2() const;
 	bool hasWorths() const;
@@ -42,7 +46,11 @@ public:
 	double tileWorth(Letter letter) const;
 	double vcPlace(int start, int length, int consbits);
 	double bogowin(int lead, int unseen, int blanks);
-	double superleave(LetterString leave);
+	// Zero for a leave with no stored value.
+	double superleave(const LetterString &leave) const;
+
+	// Packs an alphabetized leave into a unique key; false if it is too long to pack.
+	static bool packLeave(const LetterString &leave, uint64_t *key);
 
 protected:
 	bool loadSyn2(const string &filename);
@@ -50,6 +58,7 @@ protected:
 	bool loadVcPlace(const string &filename);
 	bool loadBogowin(const string &filename);
 	bool loadSuperleaves(const string &filename);
+	string findStrategyFile(const string &lexicon, const string &file) const;
 
 	int mapLetter(Letter letter) const;
 
@@ -60,8 +69,8 @@ protected:
 	static const int m_bogowinArrayWidth = 601;
 	static const int m_bogowinArrayHeight = 94;
 	double m_bogowin[m_bogowinArrayWidth][m_bogowinArrayHeight];
-	typedef std::map<LetterString, double> SuperLeavesMap;
-	SuperLeavesMap m_superleaves;
+	// Sorted by key.
+	std::vector<std::pair<uint64_t, float>> m_superleaves;
 	bool m_hasSyn2;
 	bool m_hasWorths;
 	bool m_hasVcPlace;
@@ -142,11 +151,28 @@ inline double StrategyParameters::bogowin(int lead, int unseen, int /* blanks */
 	return m_bogowin[lead + 300][unseen];
 }
 
-inline double StrategyParameters::superleave(LetterString leave)
+inline bool StrategyParameters::packLeave(const LetterString &leave, uint64_t *key)
 {
-	if (leave.length() == 0)
+	static_assert(QUACKLE_FIRST_LETTER + QUACKLE_MAXIMUM_ALPHABET_SIZE <= 64, "letters must fit in 6 bits");
+	if (leave.length() > 10)
+		return false;
+	uint64_t packed = 0;
+	for (unsigned int i = 0; i < leave.length(); ++i)
+		packed |= uint64_t(leave[i] & 0x3F) << (6 * i);
+	*key = packed;
+	return true;
+}
+
+inline double StrategyParameters::superleave(const LetterString &leave) const
+{
+	uint64_t key;
+	if (leave.length() == 0 || !packLeave(leave, &key))
 		return 0.0;
-	return m_superleaves[leave];
+	const auto it = std::lower_bound(m_superleaves.begin(), m_superleaves.end(), key,
+		[](const std::pair<uint64_t, float> &entry, uint64_t k) { return entry.first < k; });
+	if (it == m_superleaves.end() || it->first != key)
+		return 0.0;
+	return it->second;
 }
 
 }

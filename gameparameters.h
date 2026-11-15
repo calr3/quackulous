@@ -19,6 +19,7 @@
 #ifndef QUACKLE_GAMEPARAMETERS_H
 #define QUACKLE_GAMEPARAMETERS_H
 
+#include <string>
 #include <vector>
 
 namespace Quackle
@@ -49,12 +50,16 @@ public:
 	unsigned int overdrawPenalty() const;
 	void setOverdrawPenalty(unsigned int overdrawPenalty);
 
+	// Empty for standard rules; otherwise names the variant's strategy data.
+	const std::string &variantName() const;
+
 protected:
 	int m_minimumTilesForExchange;
 	int m_numberOfScorelessTurnsThatEndsGame;
 	std::vector<int> m_bonusForTilesPlayed;
 	int m_rackSize;
 	unsigned int m_overdrawPenalty;
+	std::string m_variantName;
 };
 
 inline int GameParameters::minimumTilesForExchange() const
@@ -92,6 +97,11 @@ inline int GameParameters::rackSize() const
 inline unsigned int GameParameters::overdrawPenalty() const
 {
 	return m_overdrawPenalty;
+}
+
+inline const std::string &GameParameters::variantName() const
+{
+	return m_variantName;
 }
 
 inline void GameParameters::setMinimumTilesForExchange(int minimumTilesForExchange)
