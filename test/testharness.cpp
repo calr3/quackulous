@@ -121,7 +121,8 @@ const char *usage =
 "       'sim' checks the simulator's accumulators.\n"
 "--position=game.gcg; this option can be repeated to specify positions\n"
 "                     to test.\n"
-"--lexicon=; sets the lexicon (default 'nwl23').\n"
+"--lexicon=; sets the lexicon (default 'nwl23', or 'csw24' under\n"
+"        --rules=lexulous).\n"
 "--rules=scrabble|lexulous; sets the rack size, bonuses and board (default\n"
 "        'scrabble').\n"
 "--alphabet=; sets the alphabet (default 'english', or 'lexulous' under\n"
@@ -188,8 +189,6 @@ void TestHarness::executeFromArguments()
 		computer = "Speedy Player";
 	if (computer2.isNull())
 		computer2 = computer;
-	if (m_lexicon.isNull())
-		m_lexicon = "nwl23";
 	if (m_rules.isNull())
 		m_rules = "scrabble";
 	if (m_rules != "scrabble" && m_rules != "lexulous")
@@ -197,6 +196,8 @@ void TestHarness::executeFromArguments()
 		UVcerr << "Unknown rules " << QuackleIO::Util::qstringToString(m_rules) << endl;
 		return;
 	}
+	if (m_lexicon.isNull())
+		m_lexicon = m_rules == "lexulous" ? "csw24" : "nwl23";
 	if (m_alphabet.isNull())
 		m_alphabet = m_rules == "lexulous" ? "lexulous" : "english";
 	if (!seedString.isNull())

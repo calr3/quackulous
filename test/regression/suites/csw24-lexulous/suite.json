@@ -1,6 +1,6 @@
 {
-  "_comment": "Per-combo suite for the nwl23 dictionary under Lexulous rules: 8-tile rack, 40/50 bonuses for 7/8 tiles, Lexulous board and tiles. Same schema as nwl23-english/suite.json; every test passes --rules=lexulous.",
-  "lexicon": "nwl23",
+  "_comment": "Per-combo suite for the csw24 dictionary (Lexulous uses Collins) under Lexulous rules: 8-tile rack, 40/50 bonuses for 7/8 tiles, Lexulous board and tiles. Same schema as csw24-english/suite.json; every test passes --rules=lexulous.",
+  "lexicon": "csw24",
   "alphabet": "lexulous",
   "seed": 1,
 

@@ -1,7 +1,7 @@
 {
-  "lexicon": "nwl23",
+  "lexicon": "csw24",
   "alphabet": "lexulous",
-  "git_commit": "35e11bb",
+  "git_commit": "a449530",
   "gaddag_present": true,
   "strategy_present": true
 }
