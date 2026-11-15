@@ -28,6 +28,7 @@
 #include <datamanager.h>
 #include <endgameplayer.h>
 #include <game.h>
+#include <boardparameters.h>
 #include <gameparameters.h>
 #include <lexiconparameters.h>
 #include <strategyparameters.h>
@@ -121,7 +122,10 @@ const char *usage =
 "--position=game.gcg; this option can be repeated to specify positions\n"
 "                     to test.\n"
 "--lexicon=; sets the lexicon (default 'nwl23').\n"
-"--alphabet=; sets the alphabet (default 'english').\n"
+"--rules=scrabble|lexulous; sets the rack size, bonuses and board (default\n"
+"        'scrabble').\n"
+"--alphabet=; sets the alphabet (default 'english', or 'lexulous' under\n"
+"        --rules=lexulous).\n"
 "--seed=integer; seed the rng for reproducible sessions.\n"
 "--report; generate reports for selfplay games (default false).\n"
 "--letters; letters to anagram.\n"
@@ -155,6 +159,7 @@ void TestHarness::executeFromArguments()
 	opts.addOption('d', "computer2", &computer2);
 	opts.addOption('a', "alphabet", &m_alphabet);
 	opts.addOption('l', "lexicon", &m_lexicon);
+	opts.addOption('u', "rules", &m_rules);
 	opts.addOption('m', "mode", &mode);
 	opts.addOption('s', "seed", &seedString);
 	opts.addOption('r', "repetitions", &repString);
@@ -185,8 +190,15 @@ void TestHarness::executeFromArguments()
 		computer2 = computer;
 	if (m_lexicon.isNull())
 		m_lexicon = "nwl23";
+	if (m_rules.isNull())
+		m_rules = "scrabble";
+	if (m_rules != "scrabble" && m_rules != "lexulous")
+	{
+		UVcerr << "Unknown rules " << QuackleIO::Util::qstringToString(m_rules) << endl;
+		return;
+	}
 	if (m_alphabet.isNull())
-		m_alphabet = "english";
+		m_alphabet = m_rules == "lexulous" ? "lexulous" : "english";
 	if (!seedString.isNull())
 	        seed = seedString.toUInt();
 	if (!repString.isNull())
@@ -261,7 +273,13 @@ void TestHarness::startUp()
 		delete flexure;
 	}
 
-	m_dataManager.setBoardParameters(new ScrabbleBoard());
+	if (m_rules == "lexulous")
+	{
+		m_dataManager.setParameters(new Quackle::LexulousParameters());
+		m_dataManager.setBoardParameters(new Quackle::LexulousBoard());
+	}
+	else
+		m_dataManager.setBoardParameters(new ScrabbleBoard());
 
 	m_dataManager.lexiconParameters()->loadDawg(Quackle::LexiconParameters::findDictionaryFile(QuackleIO::Util::qstringToStdString(m_lexicon + ".dawg")));
 	UVcout << ".";
@@ -269,7 +287,7 @@ void TestHarness::startUp()
    	m_dataManager.lexiconParameters()->loadGaddag(Quackle::LexiconParameters::findDictionaryFile(QuackleIO::Util::qstringToStdString(m_lexicon + ".gaddag")));
 	UVcout << ".";
 
-	if (m_alphabet == "english")
+	if (m_alphabet == "english" || m_alphabet == "lexulous")
 		m_dataManager.setBackupLexicon("default_english");
 
 	m_dataManager.strategyParameters()->initialize(QuackleIO::Util::qstringToStdString(m_lexicon));

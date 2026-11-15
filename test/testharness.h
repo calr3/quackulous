@@ -117,6 +117,7 @@ protected:
 	QString m_gamesDir;
 	QString m_lexicon;
 	QString m_alphabet;
+	QString m_rules;
 };
 
 #endif

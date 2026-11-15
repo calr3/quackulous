@@ -148,5 +148,11 @@ public:
 	EnglishBoard();
 };
 
+class LexulousBoard : public BoardParameters
+{
+public:
+	LexulousBoard();
+};
+
 }
 #endif

@@ -1,0 +1,18 @@
+{
+  "_comment": "Per-combo suite for the nwl23 dictionary under Lexulous rules: 8-tile rack, 40/50 bonuses for 7/8 tiles, Lexulous board and tiles. Same schema as nwl23-english/suite.json; every test passes --rules=lexulous.",
+  "lexicon": "nwl23",
+  "alphabet": "lexulous",
+  "seed": 1,
+
+  "tests": [
+    { "name": "staticleaves",          "mode": "staticleaves", "args": ["--rules=lexulous"], "inputs": { "racks": "inputs/static.racks" } },
+    { "name": "leavecalc",             "mode": "leavecalc",    "args": ["--rules=lexulous"], "inputs": { "leaves": "inputs/calc.leaves" }, "seed": 3 },
+
+    { "name": "selfplay-seed1",        "mode": "selfplay", "args": ["--rules=lexulous", "--repetitions=3"], "seed": 1 },
+    { "name": "selfplay-speedy-vs-speedy", "mode": "selfplay", "args": ["--rules=lexulous", "--computer=Speedy Player", "--computer2=Speedy Player", "--repetitions=2"], "seed": 7 },
+
+    { "name": "playability",           "mode": "playability", "args": ["--rules=lexulous", "--repetitions=2"], "seed": 5 },
+
+    { "name": "sim",                   "mode": "sim", "args": ["--rules=lexulous"] }
+  ]
+}

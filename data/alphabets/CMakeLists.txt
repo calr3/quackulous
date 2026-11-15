@@ -5,6 +5,7 @@ set(DATA_ALPHABETS
 	${CMAKE_CURRENT_LIST_DIR}/french.quackle_alphabet
 	${CMAKE_CURRENT_LIST_DIR}/greek.quackle_alphabet
 	${CMAKE_CURRENT_LIST_DIR}/korean.quackle_alphabet
+	${CMAKE_CURRENT_LIST_DIR}/lexulous.quackle_alphabet
 	${CMAKE_CURRENT_LIST_DIR}/mandarin.quackle_alphabet
 	${CMAKE_CURRENT_LIST_DIR}/norwegian.quackle_alphabet
 	${CMAKE_CURRENT_LIST_DIR}/pinyin.quackle_alphabet
