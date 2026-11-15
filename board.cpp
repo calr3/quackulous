@@ -449,11 +449,12 @@ int Board::score(const Move &move, bool *isBingo) const
 		if (move.tiles().length() > 1)
 			total += mainscore * wordmult;
 
-		if (laid == QUACKLE_PARAMETERS->rackSize())
+		const int tilesPlayedBonus = QUACKLE_PARAMETERS->bonusForTilesPlayed(laid);
+		if (laid == QUACKLE_PARAMETERS->rackSize() || tilesPlayedBonus != 0)
 		{
 			if (isBingo != 0)
 				*isBingo = true;
-			total += QUACKLE_PARAMETERS->bingoBonus();
+			total += tilesPlayedBonus;
 		}
 
 #ifdef DEBUG_BOARD

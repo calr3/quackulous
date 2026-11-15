@@ -21,8 +21,17 @@
 using namespace Quackle;
 
 GameParameters::GameParameters()
-	: m_minimumTilesForExchange(0), m_numberOfScorelessTurnsThatEndsGame(-1), m_bingoBonus(0), m_rackSize(7), m_overdrawPenalty(2)
+	: m_minimumTilesForExchange(0), m_numberOfScorelessTurnsThatEndsGame(-1), m_rackSize(7), m_overdrawPenalty(2)
 {
+}
+
+void GameParameters::setBonusForTilesPlayed(int tilesPlayed, int bonus)
+{
+	if (tilesPlayed < 0)
+		return;
+	if (tilesPlayed >= (int)m_bonusForTilesPlayed.size())
+		m_bonusForTilesPlayed.resize(tilesPlayed + 1, 0);
+	m_bonusForTilesPlayed[tilesPlayed] = bonus;
 }
 
 ///////
@@ -31,6 +40,15 @@ EnglishParameters::EnglishParameters()
 {
 	m_minimumTilesForExchange = 7;
 	m_numberOfScorelessTurnsThatEndsGame = 6;
-	m_bingoBonus = 50;
 	m_rackSize = 7;
+	setBonusForTilesPlayed(7, 50);
+}
+
+LexulousParameters::LexulousParameters()
+{
+	m_minimumTilesForExchange = 8;
+	m_numberOfScorelessTurnsThatEndsGame = 6;
+	m_rackSize = 8;
+	setBonusForTilesPlayed(7, 40);
+	setBonusForTilesPlayed(8, 50);
 }

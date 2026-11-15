@@ -19,6 +19,8 @@
 #ifndef QUACKLE_GAMEPARAMETERS_H
 #define QUACKLE_GAMEPARAMETERS_H
 
+#include <vector>
+
 namespace Quackle
 {
 
@@ -34,8 +36,12 @@ public:
 	int numberOfScorelessTurnsThatEndsGame() const;
 	void setNumberOfScorelessTurnsThatEndsGame(int numberOfScorelessTurnsThatEndsGame);
 
+	// The bonus for playing a full rack.
 	int bingoBonus() const;
 	void setBingoBonus(int bingoBonus);
+
+	int bonusForTilesPlayed(int tilesPlayed) const;
+	void setBonusForTilesPlayed(int tilesPlayed, int bonus);
 
 	int rackSize() const;
 	void setRackSize(int rackSize);
@@ -46,7 +52,7 @@ public:
 protected:
 	int m_minimumTilesForExchange;
 	int m_numberOfScorelessTurnsThatEndsGame;
-	int m_bingoBonus;
+	std::vector<int> m_bonusForTilesPlayed;
 	int m_rackSize;
 	unsigned int m_overdrawPenalty;
 };
@@ -68,7 +74,14 @@ inline void GameParameters::setNumberOfScorelessTurnsThatEndsGame(int numberOfSc
 
 inline int GameParameters::bingoBonus() const
 {
-	return m_bingoBonus;
+	return bonusForTilesPlayed(m_rackSize);
+}
+
+inline int GameParameters::bonusForTilesPlayed(int tilesPlayed) const
+{
+	if (tilesPlayed < 0 || tilesPlayed >= (int)m_bonusForTilesPlayed.size())
+		return 0;
+	return m_bonusForTilesPlayed[tilesPlayed];
 }
 
 inline int GameParameters::rackSize() const
@@ -88,7 +101,7 @@ inline void GameParameters::setMinimumTilesForExchange(int minimumTilesForExchan
 
 inline void GameParameters::setBingoBonus(int bingoBonus)
 {
-	m_bingoBonus = bingoBonus;
+	setBonusForTilesPlayed(m_rackSize, bingoBonus);
 }
 
 inline void GameParameters::setRackSize(int rackSize)
@@ -105,6 +118,12 @@ class EnglishParameters : public GameParameters
 {
 public:
 	EnglishParameters();
+};
+
+class LexulousParameters : public GameParameters
+{
+public:
+	LexulousParameters();
 };
 
 }
