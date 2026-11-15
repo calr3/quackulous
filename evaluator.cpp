@@ -16,6 +16,8 @@
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <algorithm>
+
 #include "board.h"
 #include "datamanager.h"
 #include "game.h"
@@ -154,7 +156,7 @@ double ScorePlusLeaveEvaluator::leaveValue(const LetterString &leave) const
 		   << vcvalues[vowels][cons] << endl;
 #endif
 
-	value += vcvalues[vowels][cons];
+	value += vcvalues[std::min(vowels, 7)][std::min(cons, 7)];
 
 	if (value < -40)
 		value = -40;
