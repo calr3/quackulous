@@ -1,0 +1,10 @@
+.gradle/
+build/
+app/build/
+app/.cxx/
+local.properties
+*.iml
+.idea/
+
+# The repository ignores build*, which would catch these.
+!build.gradle.kts
