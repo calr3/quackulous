@@ -422,6 +422,12 @@ bool QuackleApi::buildLexicon(const std::string &wordListFile, const Quackle::Al
 	GaddagBuilder gaddag;
 	Md5Digest hash = {};
 
+	if (progress && !progress(BuildStage::Reading, 0))
+	{
+		*error = "cancelled";
+		return false;
+	}
+
 	std::string line;
 	for (long lineNumber = 1; std::getline(in, line); ++lineNumber)
 	{
@@ -469,6 +475,12 @@ bool QuackleApi::buildLexicon(const std::string &wordListFile, const Quackle::Al
 		for (size_t i = 0; i < hash.size(); ++i)
 			hash[i] ^= wordHash[i];
 		gaddag.pushWord(encoded);
+	}
+
+	if (progress && !progress(BuildStage::Reading, 1))
+	{
+		*error = "cancelled";
+		return false;
 	}
 
 	if (report->words == 0)
